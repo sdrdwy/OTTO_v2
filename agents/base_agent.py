@@ -43,7 +43,7 @@ class BaseAgent:
         
         # Initialize memories
         self.conversation_memory = ConversationMemory()
-        self.long_term_memory = LongTermMemory(f"./memory/{self.name}_long_term.jsonl")
+        self.long_term_memory = LongTermMemory(f"./memory/{self.name}_long_term.jsonl", persist_directory="./chroma_db")
         
         # Agent state
         self.current_location = None

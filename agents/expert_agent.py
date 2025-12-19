@@ -17,7 +17,7 @@ class ExpertAgent(BaseAgent):
         
         # Initialize knowledge base manager
         print("Initialize knowledge base..")
-        self.knowledge_base_manager = KnowledgeBaseManager(collection_name="knowledge_base")
+        self.knowledge_base_manager = KnowledgeBaseManager(collection_name="knowledge_base", persist_directory="./chroma_db")
         
         # Load knowledge base from JSONL files if available
         kb_paths = [

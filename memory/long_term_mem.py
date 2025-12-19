@@ -7,10 +7,10 @@ from memory.vector_memory import VectorMemoryManager
 
 
 class LongTermMemory:
-    def __init__(self, memory_file_path: str):
+    def __init__(self, memory_file_path: str, persist_directory: str = "./chroma_db"):
         # 使用向量数据库管理器替代文件存储
         agent_name = os.path.basename(memory_file_path).replace('_long_term.jsonl', '')
-        self.vector_memory = VectorMemoryManager(collection_name=f"memory_{agent_name}")
+        self.vector_memory = VectorMemoryManager(collection_name=f"memory_{agent_name}", persist_directory=persist_directory)
         self.memory_file_path = memory_file_path
         # 迁移旧的JSONL文件到向量数据库（如果存在）
         self._migrate_from_jsonl()

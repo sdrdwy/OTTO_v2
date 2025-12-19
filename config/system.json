@@ -5,7 +5,7 @@
     "api_key_env": "sk-c763fc92bf8c46c7ae31639b05d89c96"
   },
   "simulation": {
-    "total_days": 7,
+    "total_days": 1,
     "time_slots": ["morning_1", "morning_2", "afternoon_1", "afternoon_2", "evening"],
     "max_dialogue_rounds": 10,
     "exam_question_count": 4
