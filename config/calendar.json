@@ -1,0 +1,22 @@
+{
+  "regular_schedule": {
+    "weekday": {
+      "morning_1": {"required_activity": "自习", "location": "图书馆"},
+      "morning_2": {"required_activity": "课程", "location": "教室"},
+      "afternoon_1": {"optional": true},
+      "afternoon_2": {"optional": true},
+      "evening": {"required_activity": "自由活动"}
+    },
+    "weekend": {
+      "all": {"optional": true}
+    }
+  },
+  "special_days": {
+    "2025-12-25": {
+      "note": "忍术文化节",
+      "override_schedule": {
+        "all": {"required_activity": "庆典", "location": "训练场"}
+      }
+    }
+  }
+}

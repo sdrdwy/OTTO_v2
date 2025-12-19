@@ -1,0 +1,11 @@
+{
+  "name": "Arisu",
+  "persona": "冷静分析型学生，擅长策略但不善言辞",
+  "is_expert": false,
+  "dialogue_style": "简洁、逻辑性强",
+  "daily_habits": {
+    "preferred_activities": ["自习", "解谜"],
+    "avoided_activities": ["无意义社交", "重复训练"]
+  },
+  "max_dialogue_rounds": 4
+}

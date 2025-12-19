@@ -1,0 +1,32 @@
+{
+  "locations": {
+    "library": {
+      "description": "A quiet place filled with books and knowledge",
+      "agents": [],
+      "events": ["study session", "book discussion", "research"]
+    },
+    "classroom": {
+      "description": "A place for learning and discussions",
+      "agents": [],
+      "events": ["lecture", "group discussion", "presentation"]
+    },
+    "park": {
+      "description": "A peaceful outdoor area for relaxation and casual conversations",
+      "agents": [],
+      "events": ["casual chat", "reflection", "nature observation"]
+    },
+    "cafe": {
+      "description": "A cozy place for informal meetings and conversations",
+      "agents": [],
+      "events": ["coffee chat", "debate", "idea sharing"]
+    },
+    "lab": {
+      "description": "A place for experiments and scientific discussions",
+      "agents": [],
+      "events": ["experiment", "hypothesis discussion", "data analysis"]
+    }
+  },
+  "world_events": [
+    "sunny day", "rainy day", "festival", "conference", "workshop"
+  ]
+}

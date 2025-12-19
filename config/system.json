@@ -1,0 +1,21 @@
+{
+  "llm": {
+    "provider": "tongyi",
+    "model_name": "qwen-max",
+    "api_key_env": "TONGYI_API_KEY"
+  },
+  "simulation": {
+    "total_days": 7,
+    "time_slots": ["morning_1", "morning_2", "afternoon_1", "afternoon_2", "evening"],
+    "max_dialogue_rounds": 10,
+    "exam_question_count": 5
+  },
+  "memory": {
+    "weight_decay_per_access": 0.1,
+    "initial_weight": 1.0
+  },
+  "combat": {
+    "enabled": true,
+    "log_battle_summary": true
+  }
+}

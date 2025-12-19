@@ -1,0 +1,11 @@
+{
+  "name": "Yuzu",
+  "persona": "好奇探索型学生，对新事物充满兴趣，喜欢尝试不同的学习方法",
+  "is_expert": false,
+  "dialogue_style": "好奇、探索性",
+  "daily_habits": {
+    "preferred_activities": ["实验", "探索新地方", "尝试新方法"],
+    "avoided_activities": ["重复性工作", "固定模式"]
+  },
+  "max_dialogue_rounds": 5
+}
