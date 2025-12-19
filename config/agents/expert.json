@@ -8,5 +8,5 @@
     "avoided_activities": ["闲聊", "无目标活动"]
   },
   "max_dialogue_rounds": 6,
-  "knowledge_base_path": "./data/knowledge_tcm.jsonl"
+  "knowledge_base_path": "./data/ninjutsu.jsonl"
 }
