@@ -23,33 +23,68 @@ class ExpertAgent(BaseAgent):
         
         # Generate curriculum based on knowledge base
         self.curriculum = self.generate_curriculum()
+        # Track teaching progress
+        self.teaching_progress = {}
     
     def generate_curriculum(self):
-        """Generate a curriculum based on knowledge base"""
+        """Generate a comprehensive curriculum based on knowledge base"""
         if not self.knowledge_base:
-            return {"topics": []}
+            return {"topics": [], "sequence": []}
         
-        topics = list(set([item.get("topic", "通用") for item in self.knowledge_base]))
+        # Group knowledge by topics
+        topics_content = {}
+        for item in self.knowledge_base:
+            topic = item.get("topic", "通用")
+            if topic not in topics_content:
+                topics_content[topic] = []
+            topics_content[topic].append(item)
+        
+        topics = list(topics_content.keys())
         
         curriculum = {
             "topics": topics,
+            "topic_contents": topics_content,  # Store all content for each topic
+            "sequence": topics,  # Define teaching sequence
             "schedule": {}
         }
         
-        # Create a simple schedule mapping topics to days
+        # Create a detailed schedule mapping topics to days
         for i, topic in enumerate(topics):
             day = i + 1
             curriculum["schedule"][f"day_{day}"] = {
                 "topic": topic,
-                "content_summary": f"关于{topic}的基础知识和应用"
+                "content_summary": f"关于{topic}的基础知识和应用",
+                "content_items": topics_content[topic]
             }
         
         return curriculum
     
-    def teach(self, student_name: str, topic: str):
-        """Teach a student on a specific topic"""
-        # Find relevant knowledge in the knowledge base
-        relevant_knowledge = [item for item in self.knowledge_base if item.get("topic") == topic]
+    def get_next_teaching_topic(self, student_name: str):
+        """Get the next topic to teach based on student's progress"""
+        if student_name not in self.teaching_progress:
+            self.teaching_progress[student_name] = 0
+        
+        curriculum_sequence = self.curriculum.get("sequence", [])
+        current_index = self.teaching_progress[student_name]
+        
+        if current_index < len(curriculum_sequence):
+            topic = curriculum_sequence[current_index]
+            # Move to next topic for this student
+            self.teaching_progress[student_name] += 1
+            return topic
+        else:
+            # Reset to first topic if we've covered all
+            self.teaching_progress[student_name] = 1  # Start from second topic next time, or reset to 0 for restart
+            return curriculum_sequence[0] if curriculum_sequence else "通用"
+    
+    def teach(self, student_name: str, topic: str = None):
+        """Teach a student on a specific topic, using curriculum if topic is not specified"""
+        if topic is None:
+            topic = self.get_next_teaching_topic(student_name)
+        
+        # Find relevant knowledge in the curriculum
+        topic_contents = self.curriculum.get("topic_contents", {}).get(topic, [])
+        relevant_knowledge = topic_contents
         
         if not relevant_knowledge:
             # If no specific knowledge, use general knowledge
@@ -69,7 +104,7 @@ class ExpertAgent(BaseAgent):
             response = self.llm.invoke([SystemMessage(content=system_prompt)])
             teaching_content = response.content
             
-            # Generate memory of teaching session
+            # Generate memory of teaching session for teacher
             teaching_memory = {
                 "id": f"teaching_{student_name}_{topic}_{datetime.now().isoformat()}",
                 "type": "teaching",
@@ -85,11 +120,38 @@ class ExpertAgent(BaseAgent):
             
             self.long_term_memory.add_memory(teaching_memory)
             
-            return teaching_content
+            # Also generate a learning memory for the student
+            student_learning_memory = {
+                "id": f"learned_from_teacher_{student_name}_{topic}_{datetime.now().isoformat()}",
+                "type": "learning_from_teacher",
+                "timestamp": str(datetime.now()),
+                "content": f"从{self.name}老师那里学习了{topic}的内容",
+                "details": {
+                    "teacher": self.name,
+                    "topic": topic,
+                    "content": teaching_content,
+                    "method": "direct_teaching"
+                },
+                "weight": 1.5
+            }
+            
+            # Get student agent to add the memory
+            from world.world_simluator import WorldSimulator
+            # We'll add the student's memory in the calling function since we need access to student object
+            # Return both the teaching content and the memory that should be added to student
+            return {
+                "teaching_content": teaching_content,
+                "student_memory": student_learning_memory,
+                "topic": topic
+            }
         except Exception as e:
             error_msg = f"教学过程中出现错误: {e}"
             print(error_msg)
-            return error_msg
+            return {
+                "teaching_content": error_msg,
+                "student_memory": None,
+                "topic": topic
+            }
     
     def answer_question(self, student_name: str, question: str):
         """Answer a student's question"""
@@ -189,7 +251,7 @@ class ExpertAgent(BaseAgent):
         
         return exam_questions
 
-    def grade_exam(self, student_name: str, answers: List[Dict], exam_questions: List[Dict]):
+    def grade_exam(self, student_name: str, answers: List[Dict], exam_questions: List[Dict], student_agent=None):
         """Grade a student's exam answers using LLM"""
         max_score = len(answers) * 10  # 10 points per question
         grading_results = []
