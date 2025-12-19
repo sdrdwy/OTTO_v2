@@ -6,6 +6,7 @@ from langchain_community.chat_models import ChatTongyi
 
 from langchain_core.messages import SystemMessage
 from agents.base_agent import BaseAgent
+from utils.token_manager import truncate_text_to_token_limit, summarize_memory_content
 
 
 class ExpertAgent(BaseAgent):
@@ -114,12 +115,15 @@ class ExpertAgent(BaseAgent):
             for item in relevant_knowledge:
                 kb_text += f"\n【{item.get('topic', '主题')}】{item.get('content', '')}"
         
+        # Apply token limiting to knowledge base content
+        kb_text = truncate_text_to_token_limit(kb_text, max_tokens=2000)
+        
         # Format student memories for context
         memory_context = ""
         if student_relevant_memories:
-            memory_context = "学生最近的学习记忆：\n"
-            for mem in student_relevant_memories:
-                memory_context += f"- {mem.get('content', '')}\n"
+            # Apply token limiting to student memories
+            memory_context = summarize_memory_content(student_relevant_memories, max_total_length=1000)
+            memory_context = f"学生最近的学习记忆：\n{memory_context}"
         
         system_prompt = f"""
 你是{self.name}，一名专业教师，人设：{self.persona}。
@@ -134,7 +138,7 @@ class ExpertAgent(BaseAgent):
 """
 
         try:
-            response = self.llm.invoke([SystemMessage(content=system_prompt)])
+            response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
             teaching_content = response.content
             
             # Generate memory of teaching session for teacher
@@ -198,11 +202,17 @@ class ExpertAgent(BaseAgent):
         # Get recent memories related to the topic
         relevant_memories = self.long_term_memory.get_memories_by_topic(topic or "general", limit=3) if topic else []
         
+        # Apply token limiting to knowledge base content
+        kb_snippet = truncate_text_to_token_limit(kb_snippet, max_tokens=1000)
+        
+        # Apply token limiting to relevant memories
+        memory_context = summarize_memory_content(relevant_memories, max_total_length=1000)
+        
         # Build context-aware prompt
         context_info = f"""
 - 当前话题：{topic or '通用学术讨论'}
 - 相关知识库内容：{kb_snippet}
-- 相关记忆：{[mem.get('content', '') for mem in relevant_memories]}
+- 相关记忆：{memory_context}
 - 对话目标：深入探讨该话题的具体方面
         """
         
@@ -216,7 +226,7 @@ class ExpertAgent(BaseAgent):
 """
         
         try:
-            response = self.llm.invoke([SystemMessage(content=system_prompt)])
+            response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
             initial_message = response.content
             
             # Create dialogue history
@@ -291,11 +301,14 @@ class ExpertAgent(BaseAgent):
             for item in relevant_knowledge:
                 kb_context += f"【{item.get('topic', '主题')}】{item.get('content', '')}\n"
         
+        # Apply token limiting to knowledge base content
+        kb_context = truncate_text_to_token_limit(kb_context, max_tokens=2000)
+        
         memory_context = ""
         if student_relevant_memories:
-            memory_context = "学生相关记忆：\n"
-            for mem in student_relevant_memories:
-                memory_context += f"- {mem.get('content', '')}\n"
+            # Apply token limiting to student memories
+            memory_context = summarize_memory_content(student_relevant_memories, max_total_length=1000)
+            memory_context = f"学生相关记忆：\n{memory_context}"
         
         system_prompt = f"""
 你是{self.name}，一名专业教师，人设：{self.persona}。
@@ -310,7 +323,7 @@ class ExpertAgent(BaseAgent):
 """
         
         try:
-            response = self.llm.invoke([SystemMessage(content=system_prompt)])
+            response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
             answer = response.content
             
             # Generate memory of Q&A session
@@ -350,7 +363,8 @@ class ExpertAgent(BaseAgent):
         for i, topic in enumerate(selected_topics):
             relevant_knowledge = [item for item in self.knowledge_base if item.get("topic") == topic]
             if relevant_knowledge:
-                knowledge_content = str(relevant_knowledge[0].get("content", ""))
+                # Apply token limiting to knowledge content
+                knowledge_content = truncate_text_to_token_limit(str(relevant_knowledge[0].get("content", "")), max_tokens=2000)
             else:
                 knowledge_content = "相关知识内容"
             
@@ -372,7 +386,7 @@ class ExpertAgent(BaseAgent):
 }}
 """
             try:
-                response = self.llm.invoke([SystemMessage(content=system_prompt)])
+                response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
                 import json
                 content = response.content
                 start_idx = content.find('{')
@@ -415,14 +429,17 @@ class ExpertAgent(BaseAgent):
             if topic_knowledge:
                 kb_context = f"【{topic_knowledge['topic']}】{topic_knowledge['content']}"
             
+            # Apply token limiting to knowledge base content
+            kb_context = truncate_text_to_token_limit(kb_context, max_tokens=1500)
+            
             # Get student's relevant memories for this topic
             student_memories_context = ""
             if student_agent:
                 student_memories = student_agent.long_term_memory.get_memories_by_topic(question_topic, limit=3)
                 if student_memories:
-                    student_memories_context = "学生相关学习记忆：\n"
-                    for mem in student_memories:
-                        student_memories_context += f"- {mem.get('content', '')}\n"
+                    # Apply token limiting to student memories
+                    memory_summary = summarize_memory_content(student_memories, max_total_length=1000)
+                    student_memories_context = f"学生相关学习记忆：\n{memory_summary}"
             
             # Use LLM to grade the answer
             system_prompt = f"""
@@ -454,7 +471,7 @@ class ExpertAgent(BaseAgent):
 }}
 """
             try:
-                response = self.llm.invoke([SystemMessage(content=system_prompt)])
+                response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
                 import json
                 content = response.content
                 start_idx = content.find('{')
