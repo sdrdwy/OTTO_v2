@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -57,32 +58,159 @@ class LongTermMemory:
             if memory_type and memory.get('type') != memory_type:
                 continue
             
-            # Calculate relevance score based on query
+            # Calculate relevance score based on query using semantic matching
             relevance_score = 0
             if query:
-                content = memory.get('content', '').lower()
-                if query.lower() in content:
-                    relevance_score += 1
+                # Exact keyword match gets higher score
+                content = memory.get('content', '')
+                if query.lower() in content.lower():
+                    relevance_score += 2
+                # Partial word match
+                query_words = query.lower().split()
+                for word in query_words:
+                    if word in content.lower():
+                        relevance_score += 0.5
+                
                 # Check other fields too
                 for key, value in memory.items():
-                    if isinstance(value, str) and query.lower() in value.lower():
-                        relevance_score += 0.5
+                    if isinstance(value, str):
+                        if query.lower() in value.lower():
+                            relevance_score += 1
+                        # Check for partial matches in other fields
+                        for word in query_words:
+                            if word in value.lower():
+                                relevance_score += 0.3
             
             if relevance_score > 0 or not query:
-                # Adjust weight based on access
+                # Adjust weight based on access and recency
                 weight = memory.get('weight', 1.0)
-                adjusted_weight = weight  # In a real implementation, we'd track access count
+                
+                # Boost recency for more recent memories
+                try:
+                    timestamp = memory.get('timestamp', '')
+                    if timestamp:
+                        from datetime import datetime
+                        memory_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00')) if 'Z' in timestamp else datetime.fromisoformat(timestamp)
+                        now = datetime.now()
+                        age_in_hours = (now - memory_time).total_seconds() / 3600
+                        # Recent memories get higher weight (less than 24 hours)
+                        if age_in_hours < 24:
+                            weight *= 1.2
+                        elif age_in_hours < 168:  # Less than a week
+                            weight *= 1.1
+                except:
+                    pass  # If timestamp parsing fails, just continue
                 
                 results.append({
                     'memory': memory,
                     'relevance_score': relevance_score,
-                    'weight': adjusted_weight
+                    'weight': weight
                 })
         
         # Sort by relevance and weight
         results.sort(key=lambda x: (x['relevance_score'], x['weight']), reverse=True)
         
         # Return top results
+        return [item['memory'] for item in results[:limit]]
+    
+    def search_by_content_fields(self, query: str = "", fields: List[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search memories by specific fields for more targeted retrieval"""
+        results = []
+        
+        for memory in self.memos:
+            relevance_score = 0
+            
+            if query:
+                # Search in specified fields if provided
+                if fields:
+                    for field in fields:
+                        if field in memory:
+                            field_value = str(memory[field])
+                            if query.lower() in field_value.lower():
+                                relevance_score += 2  # High score for exact field match
+                            # Partial match in field
+                            for word in query.lower().split():
+                                if word in field_value.lower():
+                                    relevance_score += 0.5
+                else:
+                    # Search in all fields
+                    for key, value in memory.items():
+                        if isinstance(value, str):
+                            if query.lower() in value.lower():
+                                relevance_score += 1
+                            # Partial match
+                            for word in query.lower().split():
+                                if word in value.lower():
+                                    relevance_score += 0.3
+            
+            if relevance_score > 0:
+                weight = memory.get('weight', 1.0)
+                results.append({
+                    'memory': memory,
+                    'relevance_score': relevance_score,
+                    'weight': weight
+                })
+        
+        # Sort by relevance and weight
+        results.sort(key=lambda x: (x['relevance_score'], x['weight']), reverse=True)
+        
+        # Return top results
+        return [item['memory'] for item in results[:limit]]
+    
+    def get_recent_memories(self, limit: int = 10, memory_type: str = None) -> List[Dict[str, Any]]:
+        """Get most recent memories, optionally filtered by type"""
+        filtered_memories = []
+        
+        for memory in self.memos:
+            if memory_type and memory.get('type') != memory_type:
+                continue
+            filtered_memories.append(memory)
+        
+        # Sort by timestamp (most recent first)
+        try:
+            filtered_memories.sort(
+                key=lambda m: m.get('timestamp', ''), 
+                reverse=True
+            )
+        except:
+            # If sorting by timestamp fails, keep original order
+            pass
+        
+        return filtered_memories[:limit]
+    
+    def get_memories_by_topic(self, topic: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get memories related to a specific topic"""
+        results = []
+        
+        for memory in self.memos:
+            # Check if topic appears in content or details
+            content = memory.get('content', '')
+            details = memory.get('details', {})
+            
+            topic_relevance = 0
+            
+            if topic.lower() in content.lower():
+                topic_relevance += 2
+            
+            # Check in details dict
+            if isinstance(details, dict):
+                for key, value in details.items():
+                    if isinstance(value, str) and topic.lower() in value.lower():
+                        topic_relevance += 1
+                    elif isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, str) and topic.lower() in item.lower():
+                                topic_relevance += 0.5
+            
+            if topic_relevance > 0:
+                results.append({
+                    'memory': memory,
+                    'relevance': topic_relevance
+                })
+        
+        # Sort by relevance
+        results.sort(key=lambda x: x['relevance'], reverse=True)
+        
         return [item['memory'] for item in results[:limit]]
     
     def update_memory_weight(self, memory_id: str, new_weight: float):

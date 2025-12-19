@@ -247,12 +247,25 @@ class WorldSimulator:
                     if len(participating_agents) >= 2:
                         # Have the first participating agent initiate the dialogue
                         initiating_agent = self.agents[participating_agents[0]]
-                        dialogue_history = initiating_agent.initiate_dialogue(
-                            participants=participating_agents[1:],  # Others participate
-                            topic=topic,
-                            max_rounds=max_rounds,
-                            world_simulator=self
-                        )
+                        
+                        # Use the new structured dialogue manager for more meaningful dialogues
+                        try:
+                            from dialogue.dialogue_manager import run_dialogue_with_context
+                            dialogue_history = run_dialogue_with_context(
+                                world_simulator=self,
+                                initiating_agent=initiating_agent,
+                                participants=participating_agents[1:],  # Others participate
+                                topic=topic,
+                                max_rounds=max_rounds
+                            )
+                        except ImportError:
+                            # Fallback to original method if dialogue manager is not available
+                            dialogue_history = initiating_agent.initiate_dialogue(
+                                participants=participating_agents[1:],  # Others participate
+                                topic=topic,
+                                max_rounds=max_rounds,
+                                world_simulator=self
+                            )
                         
                         if dialogue_history:
                             print(f"    对话结束，共 {len(dialogue_history)} 轮")
