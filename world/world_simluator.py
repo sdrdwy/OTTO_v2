@@ -4,6 +4,7 @@ from datetime import datetime
 from world.calendar import Calendar
 import os
 from langchain_core.messages import SystemMessage
+import random
 
 class WorldSimulator:
     def __init__(self, map_config_path: str = "./config/map.json", system_config_path: str = "./config/system.json"):
@@ -330,6 +331,7 @@ class WorldSimulator:
                                 if should_teach_decision["should_teach"]:
                                     print(f"    {expert_agent.name} 决定对学生进行教学: {should_teach_decision['reason']}")
                                     for student_agent in student_agents:
+                                        topic = random.choice(expert_agent.knowledge_base_topics)
                                         teaching_result = expert_agent.teach(student_agent, topic)
                                         teaching_content = teaching_result["teaching_content"]
                                         student_memory = teaching_result["student_memory"]
@@ -363,7 +365,7 @@ class WorldSimulator:
                         should_teach_decision = self._should_expert_teach_randomly(expert_agent, student_agents, location)
                         if should_teach_decision["should_teach"]:
                             import random
-                            topic = random.choice(["学习交流", "学术讨论", "知识讲解"])
+                            topic = random.choice(expert_agent.knowledge_base_topics)
                             print(f"    {expert_agent.name} 主动开始教学: {should_teach_decision['reason']}")
                             for student_agent in student_agents:
                                 teaching_result = expert_agent.teach(student_agent, topic)
