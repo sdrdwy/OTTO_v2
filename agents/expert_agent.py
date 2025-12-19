@@ -16,13 +16,12 @@ class ExpertAgent(BaseAgent):
         self.is_expert = True  # Mark this agent as an expert
         
         # Initialize knowledge base manager
+        print("Initialize knowledge base..")
         self.knowledge_base_manager = KnowledgeBaseManager(collection_name="knowledge_base")
         
         # Load knowledge base from JSONL files if available
         kb_paths = [
-            self.config.get("knowledge_base_path", "./data/knowledge_base.jsonl"),
-            "./data/knowledge_tcm.jsonl",  # Additional knowledge files
-            "./data/ninjutsu.jsonl",
+            self.config.get("knowledge_base_path", "./data/nin_min.jsonl"),
             "./data/nin_min.jsonl"
         ]
         
@@ -407,10 +406,10 @@ class ExpertAgent(BaseAgent):
         """Answer a student's question"""
         # Get relevant knowledge from KB
         relevant_knowledge = []
-        for item in self.knowledge_base:
-            if any(keyword in item.get("content", "").lower() or keyword in item.get("topic", "").lower() 
-                   for keyword in question.lower().split()):
-                relevant_knowledge.append(item)
+        relevant_knowledge = self.knowledge_base_manager.search_knowledge(
+            query=question,
+            limit=5
+        )
         
         # Get student's relevant memories
         student_relevant_memories = []
@@ -477,64 +476,78 @@ class ExpertAgent(BaseAgent):
 
     def create_exam(self, num_questions: int = 5):
         """Create an exam based on the curriculum and knowledge base using LLM"""
-        if not self.knowledge_base:
-            return -1
-        
-        # Use LLM to generate questions based on knowledge base
-        topics = list(set([item.get("topic", "通用") for item in self.knowledge_base]))
-        selected_topics = topics[:num_questions] if len(topics) >= num_questions else topics + topics[:num_questions-len(topics)]
-        
+        # ✅ 使用 knowledge_base_manager 替代 self.knowledge_base
+        all_topics = self.knowledge_base_manager.get_all_topics()
+        if not all_topics:
+            print("⚠️ 知识库中无主题，无法生成试卷")
+            return []
+
+        # 从 curriculum 或 topics 中选择主题
+        selected_topics = (self.curriculum.get("sequence", []) or all_topics)[:num_questions]
+        if len(selected_topics) < num_questions:
+            # 补足不足的题目
+            extra = all_topics * ((num_questions // len(all_topics)) + 1)
+            selected_topics = selected_topics + extra
+        selected_topics = selected_topics[:num_questions]
+
         exam_questions = []
         for i, topic in enumerate(selected_topics):
-            relevant_knowledge = [item for item in self.knowledge_base if item.get("topic") == topic]
-            if relevant_knowledge:
-                # Apply token limiting to knowledge content
-                knowledge_content = truncate_text_to_token_limit(str(relevant_knowledge[0].get("content", "")), max_tokens=2000)
+            # ✅ 从知识库管理器中获取该 topic 的内容
+            topic_items = self.knowledge_base_manager.get_knowledge_by_topic(topic, limit=5)
+            if not topic_items:
+                # 如果没找到，用 topic 名作为 fallback
+                knowledge_content = f"关于主题 '{topic}' 的相关知识。"
             else:
-                knowledge_content = "相关知识内容"
-            
+                # 拼接前几条内容（或只取第一条）
+                knowledge_content = "\n".join(
+                    item.get("content", str(item)) for item in topic_items[:2]
+                )
+
+            # 限制 token 长度
+            knowledge_content = truncate_text_to_token_limit(knowledge_content, max_tokens=2000)
+
             system_prompt = f"""
-你是{self.name}，一名专业教师，人设：{self.persona}。
-你的教学风格：{self.dialogue_style}。
+    你是{self.name}，一名专业教师，人设：{self.persona}。
+    你的教学风格：{self.dialogue_style}。
 
-基于以下关于"{topic}"的知识内容：
-{knowledge_content}
+    基于以下关于"{topic}"的知识内容：
+    {knowledge_content}
 
-请为学生创建一道关于"{topic}"的考试题目。
-并根据指示内容生成一个参考答案ref_ans
-返回格式为JSON对象：
-{{
-    "question": "问题内容",
-    "type": "short_answer",
-    "topic": "{topic}",
-    "reference_answer":"ref_ans",
-}}
-"""
+    请为学生创建一道关于"{topic}"的考试题目。
+    并根据指示内容生成一个参考答案ref_ans
+    返回格式为JSON对象：
+    {{
+        "question": "问题内容",
+        "type": "short_answer",
+        "topic": "{topic}",
+        "reference_answer":"ref_ans"
+    }}
+    """
             try:
-                response = self.llm.invoke([SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))])
-                import json
-                content = response.content
+                response = self.llm.invoke([
+                    SystemMessage(content=truncate_text_to_token_limit(system_prompt, max_tokens=4000))
+                ])
+                content = response.content.strip()
+
+                # 安全解析 JSON
                 start_idx = content.find('{')
-                end_idx = content.rfind('}') + 1
-                if start_idx != -1 and end_idx != 0:
-                    json_str = content[start_idx:end_idx]
+                end_idx = content.rfind('}')
+                if start_idx != -1 and end_idx > start_idx:
+                    json_str = content[start_idx:end_idx+1]
                     question = json.loads(json_str)
                     exam_questions.append(question)
                 else:
-                    # Fallback to simple question
-                    exam_questions.append({
-                        "question": f"请简述关于{topic}的主要知识点",
-                        "type": "short_answer",
-                        "topic": topic
-                    })
+                    raise ValueError("LLM 未返回有效 JSON")
+
             except Exception as e:
-                print(f"为话题'{topic}'生成考试题目失败: {e}")
+                print(f"为话题 '{topic}' 生成考试题目失败: {e}")
                 exam_questions.append({
-                    "question": f"请简述关于{topic}的主要知识点",
+                    "question": f"请简述关于‘{topic}’的主要知识点。",
                     "type": "short_answer",
-                    "topic": topic
+                    "topic": topic,
+                    "reference_answer": "（参考答案由教师根据知识库生成）"
                 })
-        
+        print(f"考试题目:{exam_questions}")
         return exam_questions
 
     def grade_exam(self, student_name: str, answers: List[Dict], exam_questions: List[Dict], student_agent=None):
@@ -552,7 +565,7 @@ class ExpertAgent(BaseAgent):
             kb_context = ""
             topic_knowledge = self.get_kb_content_by_topic(question_topic)
             if topic_knowledge:
-                kb_context = f"【{topic_knowledge['topic']}】{topic_knowledge['content']}"
+                kb_context = f"【{topic_knowledge[0]['topic']}】{topic_knowledge[0]['content']}"
             
             # Apply token limiting to knowledge base content
             kb_context = truncate_text_to_token_limit(kb_context, max_tokens=1500)

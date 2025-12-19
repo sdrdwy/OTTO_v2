@@ -4,7 +4,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
+from langchain_community.embeddings import DashScopeEmbeddings
 import uuid
 
 
@@ -14,7 +15,7 @@ class VectorMemoryManager:
     """
     def __init__(self, collection_name: str = "long_term_memory"):
         # 初始化嵌入模型和向量数据库
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+        self.embeddings = DashScopeEmbeddings(model="text-embedding-v3")
         self.collection_name = collection_name
         
         # 创建或连接到向量数据库
@@ -134,7 +135,7 @@ class KnowledgeBaseManager:
     知识库管理器，专门用于处理知识库的向量化存储
     """
     def __init__(self, collection_name: str = "knowledge_base"):
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+        self.embeddings = DashScopeEmbeddings(model="text-embedding-v3")
         self.collection_name = collection_name
         
         # 创建或连接到向量数据库
@@ -147,52 +148,91 @@ class KnowledgeBaseManager:
         self.knowledge_store = {}
     
     def load_knowledge_from_jsonl(self, jsonl_path: str):
-        """从JSONL文件加载知识到向量数据库"""
+        """从JSONL文件加载知识到向量数据库（安全版本）"""
         if not os.path.exists(jsonl_path):
             print(f"知识库文件不存在: {jsonl_path}")
             return
         
+        MAX_CONTENT_LENGTH = 6000  # DashScope 安全上限（中文字符）
+
         with open(jsonl_path, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
-                if line:
-                    try:
-                        knowledge_item = json.loads(line)
-                        
-                        # 生成唯一ID
-                        knowledge_id = knowledge_item.get("id", f"kb_{line_num}_{uuid.uuid4()}")
-                        
-                        # 准备文档内容
-                        content = knowledge_item.get("content", "")
-                        topic = knowledge_item.get("topic", "通用")
-                        
-                        # 创建文档
-                        doc = Document(
-                            page_content=content,
-                            metadata={
-                                "id": knowledge_id,
-                                "topic": topic,
-                                "source": jsonl_path,
-                                "original_data": json.dumps(knowledge_item)
-                            }
-                        )
-                        
-                        # 添加到向量数据库
-                        self.vector_store.add_documents([doc])
-                        
-                        # 存储原始数据
-                        self.knowledge_store[knowledge_id] = knowledge_item
-                        
-                    except json.JSONDecodeError as e:
-                        print(f"解析知识库第{line_num}行时出错: {e}")
+                if not line:
+                    continue
+
+                try:
+                    knowledge_item = json.loads(line)
+                    if not isinstance(knowledge_item, dict):
+                        print(f"第 {line_num} 行不是有效 JSON 对象，跳过")
                         continue
+
+                    # === 关键修复：动态拼接所有非空字段 ===
+                    content_parts = []
+                    for key, value in knowledge_item.items():
+                        if value is None:
+                            continue
+                        value_str = str(value).strip()
+                        if value_str and value_str.lower() not in ("null", "none", ""):
+                            # 保留字段名作为上下文（增强语义）
+                            content_parts.append(f"[{key}]{value_str}")
+
+                    if not content_parts:
+                        print(f"第 {line_num} 行无有效内容字段，跳过")
+                        continue
+
+                    content = "\n".join(content_parts)
+
+                    # === 防超长截断 ===
+                    if len(content) > MAX_CONTENT_LENGTH:
+                        content = content[:MAX_CONTENT_LENGTH] + " [内容已截断]"
+
+                    # 生成唯一ID
+                    knowledge_id = knowledge_item.get("id") or f"kb_{line_num}_{uuid.uuid4()}"
+
+                    # 推荐 topic：优先用 name / topic / 第一个字段
+                    topic = (
+                        knowledge_item.get("topic") or
+                        knowledge_item.get("name") or
+                        knowledge_item.get("title") or
+                        next(iter(knowledge_item.keys()), "通用")
+                    )
+                    if topic and isinstance(topic, str):
+                        topic = topic.strip().split('\n')[0]  # 取第一行避免换行
+                    else:
+                        topic = "通用"
+
+                    # 创建 Document
+                    doc = Document(
+                        page_content=content,
+                        metadata={
+                            "id": knowledge_id,
+                            "topic": topic,
+                            "source": jsonl_path,
+                            "original_data": json.dumps(knowledge_item, ensure_ascii=False)
+                        }
+                    )
+
+                    # 安全添加：再次确认非空
+                    if not doc.page_content.strip():
+                        print(f"第 {line_num} 行生成内容为空，跳过")
+                        continue
+
+                    self.vector_store.add_documents([doc])
+                    self.knowledge_store[knowledge_id] = knowledge_item
+
+                except json.JSONDecodeError as e:
+                    print(f"解析知识库第 {line_num} 行 JSON 失败: {e}")
+                except Exception as e:
+                    print(f"处理知识库第 {line_num} 行时发生错误: {e}")
+                    continue
     
     def search_knowledge(self, query: str, topic: str = None, limit: int = 10) -> List[Dict[str, Any]]:
         """搜索知识库"""
         # 构建过滤条件
-        filters = {}
+        filters = None
         if topic:
-            filters["topic"] = topic
+            filters = {"topic": topic.strip()}
         
         # 使用向量相似性搜索
         results = self.vector_store.similarity_search_with_score(

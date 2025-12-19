@@ -25,7 +25,7 @@ def main():
     all_agents = [expert_agent] + student_agents
     
     # Start the simulation
-    world_simulator.start_simulation(all_agents, is_exam=True)
+    world_simulator.start_simulation(all_agents, is_exam=False)
 
 if __name__ == "__main__":
     main()
