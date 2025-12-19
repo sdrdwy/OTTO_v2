@@ -214,11 +214,7 @@ class DialogueManager:
             return True
         
         # Check if last few messages indicate agreement or conclusion
-        recent_messages = dialogue_history[-3:] if len(dialogue_history) >= 3 else dialogue_history
-        for turn in recent_messages:
-            message = turn.get('message', '').lower()
-            if '结束' in message or '完成' in message or '同意' in message or '明白了' in message:
-                return True
+        # recent_messages = dialogue_history[-3:] if len(dialogue_history) >= 3 else dialogue_history
         
         return False
 

@@ -8,7 +8,7 @@
     "total_days": 7,
     "time_slots": ["morning_1", "morning_2", "afternoon_1", "afternoon_2", "evening"],
     "max_dialogue_rounds": 10,
-    "exam_question_count": 10
+    "exam_question_count": 4
   },
   "memory": {
     "weight_decay_per_access": 0.1,
