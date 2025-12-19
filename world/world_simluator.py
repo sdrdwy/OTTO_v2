@@ -136,7 +136,7 @@ class WorldSimulator:
                 # Each agent creates their daily schedule and acts accordingly
                 for agent_name, agent in self.agents.items():
                     # Create daily schedule based on global schedule, map info, and personal memories
-                    personal_memories = agent.long_term_memory.search_memories(limit=5)
+                    personal_memories = agent.long_term_memory.search_memories(limit=3)
                     agent.create_daily_schedule(
                         date=self.calendar.get_current_date_str(),
                         world_map=self.map,
@@ -427,7 +427,7 @@ class WorldSimulator:
         import random
         
         # Get topics that might be relevant to the agents
-        possible_topics = ["学习交流", "日常聊天", "学术讨论", "兴趣分享"]
+        possible_topics = ["学习交流忍术", "日常忍术聊天", "忍术学术讨论", "忍术兴趣分享"]
         
         # Check recent memories of agents to find relevant topics
         all_memories = []
@@ -441,11 +441,11 @@ class WorldSimulator:
         for memory in all_memories:
             content = memory.get('content', '')
             if '学习' in content:
-                topic_keywords.append('学习交流')
+                topic_keywords.append('学习交流忍术')
             elif '课程' in content or '知识' in content:
-                topic_keywords.append('学术讨论')
+                topic_keywords.append('忍术学术讨论')
             elif '兴趣' in content:
-                topic_keywords.append('兴趣分享')
+                topic_keywords.append('忍术兴趣分享')
         
         # If we found relevant topics in memories, use one of them
         if topic_keywords:

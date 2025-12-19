@@ -1,8 +1,8 @@
 {
   "name": "Arisu",
-  "persona": "冷静分析型学生，擅长策略但不善言辞",
+  "persona": "冷静分析型学生，擅长策略但不善言辞，对输出系忍术比较感兴趣",
   "is_expert": false,
-  "dialogue_style": "简洁、逻辑性强",
+  "dialogue_style": "简洁、逻辑性强，像机器人",
   "daily_habits": {
     "preferred_activities": ["自习", "解谜"],
     "avoided_activities": ["无意义社交", "重复训练"]

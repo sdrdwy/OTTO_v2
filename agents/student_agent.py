@@ -3,6 +3,7 @@ from typing import Dict, List, Any
 from datetime import datetime
 from langchain_core.messages import SystemMessage
 from agents.base_agent import BaseAgent
+from utils.token_manager import summarize_memory_content
 
 
 class StudentAgent(BaseAgent):
@@ -19,9 +20,9 @@ class StudentAgent(BaseAgent):
         
         memory_context = ""
         if relevant_memories:
-            memory_context = "相关学习记忆：\n"
-            for mem in relevant_memories:
-                memory_context += f"- {mem.get('content', '')}\n"
+            # Use utility function to manage memory content length and avoid token overflow
+            summarized_memories = summarize_memory_content(relevant_memories, max_total_length=1500)
+            memory_context = f"相关学习记忆：\n{summarized_memories}"
         
         system_prompt = f"""
 你是{self.name}，一个学生，人设：{self.persona}。
@@ -69,9 +70,9 @@ class StudentAgent(BaseAgent):
         
         memory_context = ""
         if relevant_memories:
-            memory_context = "相关学习记忆：\n"
-            for mem in relevant_memories:
-                memory_context += f"- {mem.get('content', '')}\n"
+            # Use utility function to manage memory content length and avoid token overflow
+            summarized_memories = summarize_memory_content(relevant_memories, max_total_length=1500)
+            memory_context = f"相关学习记忆：\n{summarized_memories}"
         
         system_prompt = f"""
 你是{self.name}，一个学生，人设：{self.persona}。
@@ -123,9 +124,9 @@ class StudentAgent(BaseAgent):
             
             memory_context = ""
             if relevant_memories:
-                memory_context = "相关学习记忆：\n"
-                for mem in relevant_memories:
-                    memory_context += f"- {mem.get('content', '')}\n"
+                # Use utility function to manage memory content length and avoid token overflow
+                summarized_memories = summarize_memory_content(relevant_memories, max_total_length=1500)
+                memory_context = f"相关学习记忆：\n{summarized_memories}"
             
             # Use LLM to generate a proper answer based on the question
             system_prompt = f"""
@@ -184,8 +185,9 @@ class StudentAgent(BaseAgent):
 你是{self.name}，一个学生，人设：{self.persona}。
 
 你对"{topic}"这个主题有疑问，需要向老师寻求帮助。
-你的近期学习记忆：{[mem.get('content', '') for mem in recent_memories]}
-关于{topic}的特定记忆：{[mem.get('content', '') for mem in topic_memories]}
+# 使用工具函数管理记忆内容长度以避免token溢出
+近期学习记忆摘要：{summarize_memory_content(recent_memories, max_total_length=1000)}
+关于{topic}的特定记忆摘要：{summarize_memory_content(topic_memories, max_total_length=1000)}
 
 请根据你的学习情况和人设，向老师提出一个具体的学习问题。
 """
@@ -253,7 +255,7 @@ class StudentAgent(BaseAgent):
         context_info = f"""
 - 当前话题：{topic or '通用学术讨论'}
 - 相关知识库内容：{kb_context}
-- 相关记忆：{[mem.get('content', '') for mem in relevant_memories]}
+- 相关记忆摘要：{summarize_memory_content(relevant_memories, max_total_length=1000)}
 - 对话目标：基于已有知识深入探讨该话题
         """
         
