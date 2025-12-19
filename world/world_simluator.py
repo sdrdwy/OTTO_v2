@@ -109,7 +109,7 @@ class WorldSimulator:
                 for agent_name, agent in self.agents.items():
                     if not agent.is_expert:  # Only students take the exam
                         answers = agent.take_exam(self.exam_questions)
-                        scores = expert_agent.grade_exam(agent_name, answers, self.exam_questions)
+                        scores = expert_agent.grade_exam(agent_name, answers, self.exam_questions, agent)
                         self.exam_scores[f"{agent_name}_pre"] = scores['total_score']
                         print(f"{agent_name} 考试成绩: {scores['total_score']:.1f}")
         
@@ -182,7 +182,7 @@ class WorldSimulator:
                 for agent_name, agent in self.agents.items():
                     if not agent.is_expert:  # Only students take the exam
                         answers = agent.take_exam(self.exam_questions)
-                        scores = expert_agent.grade_exam(agent_name, answers, self.exam_questions)
+                        scores = expert_agent.grade_exam(agent_name, answers, self.exam_questions, agent)
                         self.exam_scores[f"{agent_name}_post"] = scores['total_score']
                         print(f"{agent_name} 考试成绩: {scores['total_score']:.1f}")
             
@@ -317,7 +317,14 @@ class WorldSimulator:
                                 if should_teach_decision["should_teach"]:
                                     print(f"    {expert_agent.name} 决定对学生进行教学: {should_teach_decision['reason']}")
                                     for student_agent in student_agents:
-                                        teaching_content = expert_agent.teach(student_agent.name, topic)
+                                        teaching_result = expert_agent.teach(student_agent.name, topic)
+                                        teaching_content = teaching_result["teaching_content"]
+                                        student_memory = teaching_result["student_memory"]
+                                        
+                                        # Add the learning memory to the student
+                                        if student_memory:
+                                            student_agent.long_term_memory.add_memory(student_memory)
+                                        
                                         print(f"      教学内容: {teaching_content[:100]}...")
                         else:
                             print(f"    对话结束，但没有产生对话记录")
@@ -346,7 +353,14 @@ class WorldSimulator:
                             topic = random.choice(["学习交流", "学术讨论", "知识讲解"])
                             print(f"    {expert_agent.name} 主动开始教学: {should_teach_decision['reason']}")
                             for student_agent in student_agents:
-                                teaching_content = expert_agent.teach(student_agent.name, topic)
+                                teaching_result = expert_agent.teach(student_agent.name, topic)
+                                teaching_content = teaching_result["teaching_content"]
+                                student_memory = teaching_result["student_memory"]
+                                
+                                # Add the learning memory to the student
+                                if student_memory:
+                                    student_agent.long_term_memory.add_memory(student_memory)
+                                
                                 print(f"      教学内容: {teaching_content[:100]}...")
                                 student_name = student_agent.name
                                 dial_history = [{
