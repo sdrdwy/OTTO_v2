@@ -85,7 +85,8 @@ class ExpertAgent(BaseAgent):
                 return item
         return None
     
-    def teach(self, student_name: str, topic: str = None):
+    def teach(self, student: BaseAgent, topic: str = None):
+        student_name = student.name
         """Teach a student on a specific topic, using curriculum if topic is not specified"""
         if topic is None:
             topic = self.get_next_teaching_topic(student_name)
@@ -100,7 +101,7 @@ class ExpertAgent(BaseAgent):
         
         # Get student agent to retrieve relevant memories
         from world.world_simluator import WorldSimulator
-        student_agent = WorldSimulator.get_agent_by_name(student_name) if hasattr(WorldSimulator, 'get_agent_by_name') else None
+        student_agent = student
         
         # Retrieve relevant memories for the student
         student_relevant_memories = []
@@ -266,7 +267,8 @@ class ExpertAgent(BaseAgent):
                 "confidence": 0.3
             }
     
-    def answer_question(self, student_name: str, question: str):
+    def answer_question(self, student: BaseAgent, question: str):
+        student_name = student.name
         """Answer a student's question"""
         # Get relevant knowledge from KB
         relevant_knowledge = []
@@ -278,7 +280,7 @@ class ExpertAgent(BaseAgent):
         # Get student's relevant memories
         student_relevant_memories = []
         from world.world_simluator import WorldSimulator
-        student_agent = WorldSimulator.get_agent_by_name(student_name) if hasattr(WorldSimulator, 'get_agent_by_name') else None
+        student_agent = student
         if student_agent:
             student_relevant_memories = student_agent.long_term_memory.search_memories(question, limit=3)
         

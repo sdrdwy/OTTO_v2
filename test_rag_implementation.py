@@ -63,7 +63,7 @@ def test_memory_retrieval():
     print(f"Found {len(studying_memories)} memories with '学习' in content")
     
     # Test general search
-   斑秃_memories = memory.search_memories("斑秃", limit=5)
+    斑秃_memories = memory.search_memories("斑秃", limit=5)
     print(f"Found {len(斑秃_memories)} memories related to '斑秃'")
     
     print("Memory retrieval test completed.\n")

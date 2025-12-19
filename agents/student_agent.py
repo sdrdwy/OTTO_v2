@@ -129,16 +129,16 @@ class StudentAgent(BaseAgent):
             
             # Use LLM to generate a proper answer based on the question
             system_prompt = f"""
-你是{self.name}，一个学生，人设：{self.persona}。
+                你是{self.name}，一个学生，人设：{self.persona}。
 
-请回答以下考试题目：
-题目：{question_text}
-主题：{topic}
+                请回答以下考试题目：
+                题目：{question_text}
+                主题：{topic}
 
-{memory_context}
+                {memory_context}
 
-请提供一个详细且准确的答案，保持符合你的角色设定，并基于你的学习记忆回答。
-"""
+                请提供一个详细且准确的答案，保持符合你的角色设定，并基于你的学习记忆回答。
+                """
             
             try:
                 response = self.llm.invoke([SystemMessage(content=system_prompt)])
@@ -195,7 +195,7 @@ class StudentAgent(BaseAgent):
             question = response.content
             
             # Ask the teacher the question
-            teacher_response = teacher.answer_question(self.name, question)
+            teacher_response = teacher.answer_question(self, question)
             
             # Create memory of asking for help
             help_memory = {

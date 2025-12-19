@@ -330,7 +330,7 @@ class WorldSimulator:
                                 if should_teach_decision["should_teach"]:
                                     print(f"    {expert_agent.name} 决定对学生进行教学: {should_teach_decision['reason']}")
                                     for student_agent in student_agents:
-                                        teaching_result = expert_agent.teach(student_agent.name, topic)
+                                        teaching_result = expert_agent.teach(student_agent, topic)
                                         teaching_content = teaching_result["teaching_content"]
                                         student_memory = teaching_result["student_memory"]
                                         
@@ -366,7 +366,7 @@ class WorldSimulator:
                             topic = random.choice(["学习交流", "学术讨论", "知识讲解"])
                             print(f"    {expert_agent.name} 主动开始教学: {should_teach_decision['reason']}")
                             for student_agent in student_agents:
-                                teaching_result = expert_agent.teach(student_agent.name, topic)
+                                teaching_result = expert_agent.teach(student_agent, topic)
                                 teaching_content = teaching_result["teaching_content"]
                                 student_memory = teaching_result["student_memory"]
                                 
@@ -489,12 +489,12 @@ class WorldSimulator:
         你的教学风格：{expert_agent.dialogue_style}。
         
         刚刚结束了一次关于"{topic}"的对话。
-        对话内容摘要：{dialogue_content[:200]}
+        对话内容摘要：{dialogue_content[:20]}
         
         参与对话的学生：{[s.name for s in student_agents]}
         
         你的近期记忆：{expert_memories}
-        学生的近期记忆：{student_memories[:3]}
+        学生的近期记忆：{student_memories[:1]}
         
         基于对话内容和你的人设，判断你是否应该对学生进行教学。
         返回一个JSON格式的决策：
