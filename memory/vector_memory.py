@@ -13,19 +13,28 @@ class VectorMemoryManager:
     """
     向量数据库管理器，使用Chroma进行向量存储和检索
     """
-    def __init__(self, collection_name: str = "long_term_memory"):
+    def __init__(self, collection_name: str = "long_term_memory", persist_directory: str = "./chroma_db"):
         # 初始化嵌入模型和向量数据库
         self.embeddings = DashScopeEmbeddings(model="text-embedding-v3")
         self.collection_name = collection_name
+        self.persist_directory = persist_directory
         
-        # 创建或连接到向量数据库
+        # 确保持久化目录存在
+        os.makedirs(self.persist_directory, exist_ok=True)
+        
+        # 创建或连接到向量数据库（本地持久化）
         self.vector_store = Chroma(
             collection_name=collection_name,
-            embedding_function=self.embeddings
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory
         )
         
         # 用于存储额外的元数据
         self.metadata_store = {}
+        
+        # 初始化备份文件路径
+        self.backup_file_path = os.path.join("./memory_backup", f"{collection_name}_backup.jsonl")
+        os.makedirs(os.path.dirname(self.backup_file_path), exist_ok=True)
     
     def add_memory(self, memory: Dict[str, Any]):
         """添加记忆到向量数据库"""
@@ -56,6 +65,17 @@ class VectorMemoryManager:
         
         # 存储完整的记忆数据
         self.metadata_store[memory_id] = memory
+        
+        # 将记忆写入备份JSONL文件
+        self._write_memory_to_backup(memory)
+    
+    def _write_memory_to_backup(self, memory: Dict[str, Any]):
+        """将记忆写入备份JSONL文件"""
+        try:
+            with open(self.backup_file_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(memory, ensure_ascii=False) + '\n')
+        except Exception as e:
+            print(f"写入备份文件失败: {e}")
     
     def search_memories(self, query: str, limit: int = 10, memory_type: str = None) -> List[Dict[str, Any]]:
         """搜索记忆"""
@@ -134,18 +154,27 @@ class KnowledgeBaseManager:
     """
     知识库管理器，专门用于处理知识库的向量化存储
     """
-    def __init__(self, collection_name: str = "knowledge_base"):
+    def __init__(self, collection_name: str = "knowledge_base", persist_directory: str = "./chroma_db"):
         self.embeddings = DashScopeEmbeddings(model="text-embedding-v3")
         self.collection_name = collection_name
+        self.persist_directory = persist_directory
         
-        # 创建或连接到向量数据库
+        # 确保持久化目录存在
+        os.makedirs(self.persist_directory, exist_ok=True)
+        
+        # 创建或连接到向量数据库（本地持久化）
         self.vector_store = Chroma(
             collection_name=collection_name,
-            embedding_function=self.embeddings
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory
         )
         
         # 用于存储知识项
         self.knowledge_store = {}
+        
+        # 初始化备份文件路径
+        self.backup_file_path = os.path.join("./knowledge_backup", f"{collection_name}_backup.jsonl")
+        os.makedirs(os.path.dirname(self.backup_file_path), exist_ok=True)
     
     def load_knowledge_from_jsonl(self, jsonl_path: str):
         """从JSONL文件加载知识到向量数据库（安全版本）"""
@@ -220,12 +249,23 @@ class KnowledgeBaseManager:
 
                     self.vector_store.add_documents([doc])
                     self.knowledge_store[knowledge_id] = knowledge_item
+                    
+                    # 将知识项写入备份JSONL文件
+                    self._write_knowledge_to_backup(knowledge_item)
 
                 except json.JSONDecodeError as e:
                     print(f"解析知识库第 {line_num} 行 JSON 失败: {e}")
                 except Exception as e:
                     print(f"处理知识库第 {line_num} 行时发生错误: {e}")
                     continue
+
+    def _write_knowledge_to_backup(self, knowledge_item: Dict[str, Any]):
+        """将知识项写入备份JSONL文件"""
+        try:
+            with open(self.backup_file_path, 'a', encoding='utf-8') as f:
+                f.write(json.dumps(knowledge_item, ensure_ascii=False) + '\n')
+        except Exception as e:
+            print(f"写入知识库备份文件失败: {e}")
     
     def search_knowledge(self, query: str, topic: str = None, limit: int = 10) -> List[Dict[str, Any]]:
         """搜索知识库"""
